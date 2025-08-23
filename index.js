@@ -2,6 +2,7 @@ import { Client, GatewayIntentBits } from "discord.js";
 import fs from "fs";
 import dotenv from "dotenv";
 import express from 'express';
+import { DateTime } from "luxon";
 
 dotenv.config();
 
@@ -49,7 +50,7 @@ function timeToMinutes(time) {
 // Generate formatted boss list
 function listBosses() {
   const now = getNowDateUTC7()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentMinutes = now.hour * 60 + now.minute;
 
   let reply = "📆 Next Respawns:\n";
 
@@ -78,7 +79,8 @@ function minutesToTime(minutes) {
 // Auto-update boss spawn times if they have already passed
 function autoUpdateSpawnTimes() {
   const now = getNowDateUTC7()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  console.log('now',now)
+  const currentMinutes = now.hour * 60 + now.minute;
   let updated = false;
 
   bosses.forEach((boss) => {
@@ -146,31 +148,8 @@ function updateBossSpawn(bossName, deathTime) {
 
 
 function getNowDateUTC7() {
-  // Lấy thời gian hiện tại ở múi giờ UTC+7 (Vietnam)
-  const now = new Date();
-  const options = {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  };
-  
-  const formatter = new Intl.DateTimeFormat('en-CA', options);
-  const parts = formatter.formatToParts(now);
-  
-  const year = parts.find(part => part.type === 'year').value;
-  const month = parts.find(part => part.type === 'month').value;
-  const day = parts.find(part => part.type === 'day').value;
-  const hour = parts.find(part => part.type === 'hour').value;
-  const minute = parts.find(part => part.type === 'minute').value;
-  const second = parts.find(part => part.type === 'second').value;
-  
-  // Tạo Date object từ thời gian UTC+7
-  return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
+  const nowVN = DateTime.now().setZone('Asia/Ho_Chi_Minh');
+  return nowVN
 }
 
 // Prevent duplicate notifications
@@ -189,7 +168,7 @@ client.once("ready", () => {
   // Check spawn alerts and auto-update every 30 seconds
   setInterval(() => {
     const now = getNowDateUTC7()
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentMinutes = now.hour * 60 + now.minute;
 
     // Auto-update spawn times every check
     autoUpdateSpawnTimes();
@@ -223,7 +202,7 @@ client.once("ready", () => {
 
         // Send notification if within 1 minute of target time
         if (timeDiff <= 0.5) { // 30 seconds tolerance
-          const dateKey = Math.floor(now.getTime() / (24 * 60 * 60 * 1000));
+          const dateKey = Math.floor(now.toMillis() / (24 * 60 * 60 * 1000));
           const key = `${boss.boss}-${alert.offset}-${dateKey}`;
 
           if (!notified[key]) {
@@ -236,7 +215,7 @@ client.once("ready", () => {
     });
 
     // Clean up old notification keys every hour (when minutes = 0)
-    if (now.getMinutes() === 0) {
+    if (now.minute === 0) {
       const twoDaysAgo = Math.floor(Date.now() / (24 * 60 * 60 * 1000)) - 2;
       Object.keys(notified).forEach(key => {
         const keyParts = key.split('-');
