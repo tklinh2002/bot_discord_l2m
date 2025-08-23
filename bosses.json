@@ -1,0 +1,233 @@
+[
+  {
+    "boss": "Timitris",
+    "death": "15:23",
+    "spawn": "19:54",
+    "rate": "100",
+    "hours": "8"
+  },
+  {
+    "boss": "Mutated Cruma",
+    "death": "15:27",
+    "spawn": "18:41",
+    "rate": "100",
+    "hours": "8"
+  },
+  {
+    "boss": "Basila",
+    "death": "19:35",
+    "spawn": "18:08",
+    "rate": "50",
+    "hours": "4"
+  },
+  {
+    "boss": "Timiniel",
+    "death": "15:38",
+    "spawn": "00:43",
+    "rate": "100",
+    "hours": "8"
+  },
+  {
+    "boss": "Contaminated Cruma",
+    "death": "15:39",
+    "spawn": "20:02",
+    "rate": "100",
+    "hours": "8"
+  },
+  {
+    "boss": "Talkin",
+    "death": "15:48",
+    "spawn": "19:45",
+    "rate": "50",
+    "hours": "8"
+  },
+  {
+    "boss": "Dragon Beast",
+    "death": "11:51",
+    "spawn": "22:04",
+    "rate": "33",
+    "hours": "12"
+  },
+  {
+    "boss": "Sarka",
+    "death": "14:47",
+    "spawn": "17:55",
+    "rate": "50",
+    "hours": "10"
+  },
+  {
+    "boss": "Tempest/Valefar",
+    "death": "19:09",
+    "spawn": "19:58",
+    "rate": "50",
+    "hours": "6"
+  },
+  {
+    "boss": "Chertuba",
+    "death": "19:27",
+    "spawn": "18:37",
+    "rate": "50",
+    "hours": "6"
+  },
+  {
+    "boss": "Enkura",
+    "death": "19:32",
+    "spawn": "20:03",
+    "rate": "50",
+    "hours": "6"
+  },
+  {
+    "boss": "Breka",
+    "death": "19:33",
+    "spawn": "19:58",
+    "rate": "50",
+    "hours": "6"
+  },
+  {
+    "boss": "Felis",
+    "death": "22:36",
+    "spawn": "19:05",
+    "rate": "50",
+    "hours": "3"
+  },
+  {
+    "boss": "Matura",
+    "death": "20:26",
+    "spawn": "19:57",
+    "rate": "50",
+    "hours": "6"
+  },
+  {
+    "boss": "Core Susceptor",
+    "death": "16:48",
+    "spawn": "20:07",
+    "rate": "33",
+    "hours": "10"
+  },
+  {
+    "boss": "Kelsus",
+    "death": "17:14",
+    "spawn": "17:48",
+    "rate": "50",
+    "hours": "10"
+  },
+  {
+    "boss": "Pan narod",
+    "death": "22:19",
+    "spawn": "17:56",
+    "rate": "50",
+    "hours": "5"
+  },
+  {
+    "boss": "Talakin",
+    "death": "17:19",
+    "spawn": "17:51",
+    "rate": "100",
+    "hours": "10"
+  },
+  {
+    "boss": "Stonegeist",
+    "death": "20:29",
+    "spawn": "18:00",
+    "rate": "100",
+    "hours": "7"
+  },
+  {
+    "boss": "Medusa",
+    "death": "17:29",
+    "spawn": "17:59",
+    "rate": "100",
+    "hours": "10"
+  },
+  {
+    "boss": "Black Lilly",
+    "death": "15:34",
+    "spawn": "02:20",
+    "rate": "100",
+    "hours": "12"
+  },
+  {
+    "boss": "Queen ant",
+    "death": "21:46",
+    "spawn": "20:16",
+    "rate": "33",
+    "hours": "6"
+  },
+  {
+    "boss": "Tromba",
+    "death": "20:50",
+    "spawn": "17:03",
+    "rate": "50",
+    "hours": "7"
+  },
+  {
+    "boss": "Katan",
+    "death": "17:57",
+    "spawn": "18:10",
+    "rate": "100",
+    "hours": "10"
+  },
+  {
+    "boss": "Selu",
+    "death": "18:56",
+    "spawn": "18:16",
+    "rate": "50",
+    "hours": "12"
+  },
+  {
+    "boss": "Pan Dra'eed",
+    "death": "19:17",
+    "spawn": "19:52",
+    "rate": "100",
+    "hours": "12"
+  },
+  {
+    "boss": "Savan",
+    "death": "19:21",
+    "spawn": "19:56",
+    "rate": "100",
+    "hours": "12"
+  },
+  {
+    "boss": "Balbo",
+    "death": "19:23",
+    "spawn": "20:01",
+    "rate": "50",
+    "hours": "12"
+  },
+  {
+    "boss": "Gahareth",
+    "death": "22:47",
+    "spawn": "18:35",
+    "rate": "50",
+    "hours": "9"
+  },
+  {
+    "boss": "Behemot",
+    "death": "23:07",
+    "spawn": "20:17",
+    "rate": "100",
+    "hours": "9"
+  },
+  {
+    "boss": "Corun",
+    "death": "23:07",
+    "spawn": "22:26",
+    "rate": "100",
+    "hours": "10"
+  },
+  {
+    "boss": "Lepiro",
+    "death": "23:07",
+    "spawn": "21:14",
+    "rate": "50",
+    "hours": "5"
+  },
+  {
+    "boss": "Orfen",
+    "death": "23:07",
+    "spawn": "19:45",
+    "rate": "33",
+    "hours": "24"
+  }
+]
