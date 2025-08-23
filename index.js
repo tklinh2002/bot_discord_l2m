@@ -2,7 +2,30 @@ import { Client, GatewayIntentBits } from "discord.js";
 import fs from "fs";
 import dotenv from "dotenv";
 import * as dfnsTz from 'date-fns-tz';
+import express from 'express';
+
 dotenv.config();
+
+// Express server để keep alive
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('🤖 Discord Boss Tracker Bot is running!');
+});
+
+app.get('/status', (req, res) => {
+  res.json({
+    status: 'online',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    botUser: client.user ? client.user.tag : 'Not logged in'
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 HTTP server running on port ${PORT}`);
+});
 
 const client = new Client({
   intents: [
@@ -212,8 +235,9 @@ client.once("ready", () => {
 // =======================
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
-  
+
   if (message.channel.id !== channelId) return;
+  
   const content = message.content.trim();
 
   // Command: !list → show all bosses
