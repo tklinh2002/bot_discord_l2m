@@ -1,7 +1,6 @@
 import { Client, GatewayIntentBits } from "discord.js";
 import fs from "fs";
 import dotenv from "dotenv";
-import * as dfnsTz from 'date-fns-tz';
 import express from 'express';
 
 dotenv.config();
@@ -147,10 +146,31 @@ function updateBossSpawn(bossName, deathTime) {
 
 
 function getNowDateUTC7() {
+  // Lấy thời gian hiện tại ở múi giờ UTC+7 (Vietnam)
   const now = new Date();
-  const timeZone = 'Asia/Ho_Chi_Minh';
-  const nowInUTC7 = dfnsTz.fromZonedTime(now, timeZone);
-  return nowInUTC7;
+  const options = {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  };
+  
+  const formatter = new Intl.DateTimeFormat('en-CA', options);
+  const parts = formatter.formatToParts(now);
+  
+  const year = parts.find(part => part.type === 'year').value;
+  const month = parts.find(part => part.type === 'month').value;
+  const day = parts.find(part => part.type === 'day').value;
+  const hour = parts.find(part => part.type === 'hour').value;
+  const minute = parts.find(part => part.type === 'minute').value;
+  const second = parts.find(part => part.type === 'second').value;
+  
+  // Tạo Date object từ thời gian UTC+7
+  return new Date(`${year}-${month}-${day}T${hour}:${minute}:${second}`);
 }
 
 // Prevent duplicate notifications
