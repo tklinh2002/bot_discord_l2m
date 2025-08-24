@@ -27,6 +27,8 @@ app.get("/status", (req, res) => {
 });
 
 app.listen(PORT, () => {
+  console.log("DEBUG TOKEN:", token ? "FOUND ✅" : "MISSING ❌");
+  console.log("DEBUG CHANNEL ID:", channelId ? "FOUND ✅" : "MISSING ❌");
   console.log(`🌐 HTTP server running on port ${PORT}`);
 });
 
