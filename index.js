@@ -244,6 +244,7 @@ client.on("messageCreate", (message) => {
     message.channel.send(results.join("\n"));
     message.channel.send(listBosses());
   }
+  
 });
 
 // ============== LOGIN ==============
