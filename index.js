@@ -249,4 +249,9 @@ client.on("messageCreate", (message) => {
 
 // ============== LOGIN ==============
 // Start bot
-client.login(token);
+
+client.login(token).catch((err) => {
+  console.log("DEBUG TOKEN:", token ? "FOUND ✅" : "MISSING ❌");
+  console.log("DEBUG CHANNEL ID:", channelId ? "FOUND ✅" : "MISSING ❌");
+  console.error("❌ Failed to login:", err);
+});
