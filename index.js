@@ -57,15 +57,21 @@ function getNowDateUTC7() {
 
 // Return sorted list of bosses by next spawn time
 function listBosses() {
-  let reply = "📆 Next Respawns:\n";
+  const TZ = "Asia/Ho_Chi_Minh";
+  let reply = "📆 Next Respawns (UTC+7):\n";
 
-  bosses
+  const sorted = bosses
     .slice()
-    .sort((a, b) => DateTime.fromISO(a.spawnAt) - DateTime.fromISO(b.spawnAt))
-    .forEach((b) => {
-      const spawnAt = DateTime.fromISO(b.spawnAt);
-      reply += `${b.boss} (${b.rate}%) — ${spawnAt.toFormat("HH:mm")} (${b.hours}h)\n`;
-    });
+    .sort(
+      (a, b) =>
+        DateTime.fromISO(a.spawnAt).toMillis() -
+        DateTime.fromISO(b.spawnAt).toMillis()
+    );
+
+  for (const b of sorted) {
+    const spawnAtVN = DateTime.fromISO(b.spawnAt).setZone(TZ);
+    reply += `${b.boss} (${b.rate}%) — ${spawnAtVN.toFormat("HH:mm")} (${b.hours}h)\n`;
+  }
 
   return reply;
 }
