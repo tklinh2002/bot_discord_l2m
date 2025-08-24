@@ -1,25 +1,28 @@
 import { Client, GatewayIntentBits } from "discord.js";
 import fs from "fs";
 import dotenv from "dotenv";
-import express from 'express';
+import express from "express";
 import { DateTime } from "luxon";
 
 dotenv.config();
 
-// Express server để keep alive
+// ============== EXPRESS KEEP ALIVE ==============
+// Simple HTTP server to keep the bot alive (for hosting platforms like Replit/Heroku)
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.get('/', (req, res) => {
-  res.send('🤖 Discord Boss Tracker Bot is running!');
+app.get("/", (req, res) => {
+  res.send("🤖 Discord Boss Tracker Bot is running!");
 });
 
-app.get('/status', (req, res) => {
+// Status endpoint to check bot uptime and login state
+let client; // declared first so it can be used in /status
+app.get("/status", (req, res) => {
   res.json({
-    status: 'online',
+    status: "online",
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    botUser: client.user ? client.user.tag : 'Not logged in'
+    botUser: client?.user ? client.user.tag : "Not logged in",
   });
 });
 
@@ -27,7 +30,9 @@ app.listen(PORT, () => {
   console.log(`🌐 HTTP server running on port ${PORT}`);
 });
 
-const client = new Client({
+// ============== DISCORD CLIENT ==============
+// Create Discord client with necessary intents
+client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
@@ -38,123 +43,138 @@ const client = new Client({
 const token = process.env.DISCORD_TOKEN;
 const channelId = process.env.DISCORD_CHANNEL_ID;
 
-// Load bosses.json
+// ============== LOAD BOSSES ==============
+// Load bosses.json file containing all boss info
 let bosses = JSON.parse(fs.readFileSync("bosses.json", "utf8"));
 
-// Convert "HH:mm" to total minutes
-function timeToMinutes(time) {
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
+// ============== HELPER FUNCS ==============
+// Get current datetime in UTC+7 (Vietnam timezone)
+function getNowDateUTC7() {
+  return DateTime.now().setZone("Asia/Ho_Chi_Minh");
 }
 
-// Generate formatted boss list
+// Return sorted list of bosses by next spawn time
 function listBosses() {
-  const now = getNowDateUTC7()
-  const currentMinutes = now.hour * 60 + now.minute;
-
   let reply = "📆 Next Respawns:\n";
 
   bosses
     .slice()
-    .sort((a, b) => {
-      const aMinutes = timeToMinutes(a.spawn);
-      const bMinutes = timeToMinutes(b.spawn);
-      const aDiff = (aMinutes - currentMinutes + 1440) % 1440;
-      const bDiff = (bMinutes - currentMinutes + 1440) % 1440;
-
-      return aDiff - bDiff;
-    })
+    .sort((a, b) => DateTime.fromISO(a.spawnAt) - DateTime.fromISO(b.spawnAt))
     .forEach((b) => {
-      reply += `${b.boss} (${b.rate}%) — ${b.spawn} (${b.hours}h)\n`;
+      const spawnAt = DateTime.fromISO(b.spawnAt);
+      reply += `${b.boss} (${b.rate}%) — ${spawnAt.toFormat("HH:mm")} (${b.hours}h)\n`;
     });
 
   return reply;
 }
-function minutesToTime(minutes) {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-}
 
-// Auto-update boss spawn times if they have already passed
+// Automatically update spawn times if they are in the past
 function autoUpdateSpawnTimes() {
-  const now = getNowDateUTC7()
-  console.log('now',now)
-  const currentMinutes = now.hour * 60 + now.minute;
+  const now = getNowDateUTC7();
   let updated = false;
 
   bosses.forEach((boss) => {
-    const spawnMinutes = timeToMinutes(boss.spawn);
-    
-    // Check if spawn time has passed
-    if (currentMinutes > spawnMinutes) {
-      // Calculate how many cycles have passed
-      const timePassed = currentMinutes - spawnMinutes;
-      const cycleMinutes = boss.hours * 60;
-      const cyclesPassed = Math.floor(timePassed / cycleMinutes) + 1;
-      
-      // Calculate next spawn time
-      let nextSpawnMinutes = spawnMinutes + (cyclesPassed * cycleMinutes);
-      nextSpawnMinutes = nextSpawnMinutes % (24 * 60); // wrap to 24h
-      
-      // Update boss spawn time
-      const newSpawnTime = minutesToTime(nextSpawnMinutes);
-      if (boss.spawn !== newSpawnTime) {
-        console.log(`🔄 Auto-updated ${boss.boss}: ${boss.spawn} → ${newSpawnTime}`);
-        boss.spawn = newSpawnTime;
-        updated = true;
-      }
+    if (!boss.spawnAt) return;
+    let spawnAt = DateTime.fromISO(boss.spawnAt);
+
+    // Keep adding boss cycle until it's in the future
+    while (spawnAt < now) {
+      spawnAt = spawnAt.plus({ hours: Number(boss.hours) });
+    }
+
+    // If updated, save new time
+    if (boss.spawnAt !== spawnAt.toISO()) {
+      console.log(
+        `🔄 Auto-updated ${boss.boss}: ${DateTime.fromISO(boss.spawnAt).toFormat(
+          "HH:mm"
+        )} → ${spawnAt.toFormat("HH:mm")}`
+      );
+      boss.spawnAt = spawnAt.toISO();
+      updated = true;
     }
   });
 
-  // Save to file if any updates were made
+  // Save changes back to bosses.json
   if (updated) {
     fs.writeFileSync("bosses.json", JSON.stringify(bosses, null, 2), "utf8");
   }
-
   return updated;
 }
 
-// =======================
-// Shared update function
-// =======================
+// Update spawn time of a single boss when user inputs death time
 function updateBossSpawn(bossName, deathTime) {
-  // Find boss by name (case insensitive)
   const boss = bosses.find(
     (b) => b.boss.toLowerCase() === bossName.toLowerCase()
   );
-  if (!boss) {
-    return { success: false, message: `❌ Boss not found: ${bossName}` };
+  if (!boss) return { success: false, message: `❌ Boss not found: ${bossName}` };
+
+  const now = getNowDateUTC7();
+  const [dh, dm] = deathTime.split(":").map(Number);
+  let deathAt = now.set({ hour: dh, minute: dm, second: 0, millisecond: 0 });
+
+  // If death time is in the future today → treat as yesterday
+  if (deathAt > now) {
+    deathAt = deathAt.minus({ days: 1 });
   }
 
-  // Convert death time into minutes
-  const [dh, dm] = deathTime.split(":").map(Number);
-  const deathMinutes = dh * 60 + dm;
+  // Spawn time = death time + respawn hours
+  const spawnAt = deathAt.plus({ hours: Number(boss.hours) });
 
-  // Add respawn hours
-  let spawnMinutes = deathMinutes + boss.hours * 60;
-  spawnMinutes = spawnMinutes % (24 * 60); // wrap to 24h
-
-  // Format back into "HH:mm"
-  const spawnH = String(Math.floor(spawnMinutes / 60)).padStart(2, "0");
-  const spawnM = String(spawnMinutes % 60).padStart(2, "0");
-  boss.spawn = `${spawnH}:${spawnM}`;
+  boss.deathAt = deathAt.toISO();
+  boss.spawnAt = spawnAt.toISO();
 
   return {
     success: true,
-    message: `✅**${boss.boss}** - ${boss.spawn}`,
+    message: `✅ **${boss.boss}** - ${spawnAt.toFormat("HH:mm")}`,
   };
 }
 
-
-function getNowDateUTC7() {
-  const nowVN = DateTime.now().setZone('Asia/Ho_Chi_Minh');
-  return nowVN
-}
-
-// Prevent duplicate notifications
+// ============== NOTIFICATIONS ==============
+// Store which alerts have already been sent to avoid duplicates
 let notified = {};
 
+// Check if any boss should trigger an alert
+function checkAlerts(channel) {
+  const now = getNowDateUTC7();
+
+  autoUpdateSpawnTimes();
+
+  bosses.forEach((boss) => {
+    if (!boss.spawnAt) return;
+    const spawnAt = DateTime.fromISO(boss.spawnAt);
+    const diffMinutes = Math.round(spawnAt.diff(now, "minutes").minutes);
+
+    // Predefined alerts (10m, 5m, 1m before spawn)
+    const alerts = [
+      { offset: 10, message: `⏳ **${boss.boss}** will spawn in 10 minutes!` },
+      { offset: 5, message: `⚡ **${boss.boss}** will spawn in 5 minutes!` },
+      { offset: 1, message: `🔥 Boss **${boss.boss}** will spawn in 1 minute!` },
+    ];
+
+    alerts.forEach((alert) => {
+      if (diffMinutes === alert.offset) {
+        const key = `${boss.boss}-${alert.offset}-${spawnAt.toISODate()}`;
+        if (!notified[key]) {
+          channel.send(alert.message);
+          notified[key] = true;
+          console.log(`📢 Sent alert: ${alert.message}`);
+        }
+      }
+    });
+  });
+
+  // Cleanup old alerts (older than 2 days)
+  const twoDaysAgo = now.minus({ days: 2 }).toISODate();
+  Object.keys(notified).forEach((key) => {
+    const day = key.split("-").pop();
+    if (day < twoDaysAgo) {
+      delete notified[key];
+    }
+  });
+}
+
+// ============== DISCORD EVENTS ==============
+// Bot ready event
 client.once("ready", () => {
   console.log(`✅ Bot logged in as: ${client.user.tag}`);
 
@@ -164,95 +184,32 @@ client.once("ready", () => {
     return;
   }
 
-  // Check spawn alerts every 10 seconds
-  // Check spawn alerts and auto-update every 30 seconds
+  // Run alert checker every 30 seconds
   setInterval(() => {
-    const now = getNowDateUTC7()
-    const currentMinutes = now.hour * 60 + now.minute;
-
-    // Auto-update spawn times every check
-    autoUpdateSpawnTimes();
-
-    bosses.forEach((boss) => {
-      const spawnMinutes = timeToMinutes(boss.spawn);
-
-      // Define alerts
-      const alerts = [
-        { offset: 10, message: `⏳ **${boss.boss}** will spawn in 10 minutes!` },
-        { offset: 5, message: `⚡ **${boss.boss}** will spawn in 5 minutes!` },
-        { offset: 1, message: `🔥 Boss **${boss.boss}** will spawn in 1 minute!` },
-      ];
-
-      alerts.forEach((alert) => {
-        // Calculate target minute for notification
-        let targetMinute = spawnMinutes - alert.offset;
-        
-        // Handle negative values (cross-day scenarios)
-        if (targetMinute < 0) {
-          targetMinute += 1440; // Add 24 hours in minutes
-        }
-
-        // Calculate time difference accounting for day wrap
-        let timeDiff = Math.abs(currentMinutes - targetMinute);
-        
-        // Handle day boundary crossing
-        if (timeDiff > 720) { // More than 12 hours difference
-          timeDiff = 1440 - timeDiff;
-        }
-
-        // Send notification if within 1 minute of target time
-        if (timeDiff <= 0.5) { // 30 seconds tolerance
-          const dateKey = Math.floor(now.toMillis() / (24 * 60 * 60 * 1000));
-          const key = `${boss.boss}-${alert.offset}-${dateKey}`;
-
-          if (!notified[key]) {
-            channel.send(alert.message);
-            notified[key] = true;
-            console.log(`📢 Sent alert: ${alert.message}`);
-          }
-        }
-      });
-    });
-
-    // Clean up old notification keys every hour (when minutes = 0)
-    if (now.minute === 0) {
-      const twoDaysAgo = Math.floor(Date.now() / (24 * 60 * 60 * 1000)) - 2;
-      Object.keys(notified).forEach(key => {
-        const keyParts = key.split('-');
-        const keyDay = parseInt(keyParts[keyParts.length - 1]);
-        if (keyDay < twoDaysAgo) {
-          delete notified[key];
-        }
-      });
-      console.log('🧹 Cleaned up old notification keys');
-    }
+    checkAlerts(channel);
   }, 30000);
 });
 
-// =======================
-// Chat Commands
-// =======================
+// Handle user messages
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
-
   if (message.channel.id !== channelId) return;
-  
+
   const content = message.content.trim();
 
-  // Command: !list → show all bosses
+  // Command: !list → Show all boss timers
   if (content === "!list") {
     message.channel.send(listBosses());
     return;
   }
 
-  // Command: !add <boss name> <HH:mm>
+  // Command: !add <boss name> <HH:mm> → Update single boss
   if (content.startsWith("!add ")) {
-    const parts = content.trim().split(" ");
+    const parts = content.split(" ");
     if (parts.length < 3) {
       message.channel.send("❌ Syntax: `!add <boss name> <HH:mm>`");
       return;
     }
-
     const deathTime = parts[parts.length - 1];
     const bossName = parts.slice(1, -1).join(" ");
 
@@ -263,16 +220,14 @@ client.on("messageCreate", (message) => {
       return;
     }
 
-    // Save bosses.json
     fs.writeFileSync("bosses.json", JSON.stringify(bosses, null, 2), "utf8");
-
     message.channel.send(result.message);
     message.channel.send(listBosses());
   }
 
-  // Command: !addmulti (multiple bosses at once)
+  // Command: !addmulti → Add multiple bosses at once
   if (content.startsWith("!addmulti")) {
-    const lines = content.split("\n").slice(1); // skip the first line
+    const lines = content.split("\n").slice(1); // skip first line with command
     let results = [];
 
     for (const line of lines) {
@@ -281,17 +236,16 @@ client.on("messageCreate", (message) => {
 
       const deathTime = parts[parts.length - 1];
       const bossName = parts.slice(0, -1).join(" ");
-
       const result = updateBossSpawn(bossName, deathTime);
       results.push(result.message);
     }
 
-    // Save bosses.json
     fs.writeFileSync("bosses.json", JSON.stringify(bosses, null, 2), "utf8");
-
     message.channel.send(results.join("\n"));
     message.channel.send(listBosses());
   }
 });
 
+// ============== LOGIN ==============
+// Start bot
 client.login(token);
