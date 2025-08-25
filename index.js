@@ -137,9 +137,6 @@ function updateBossSpawn(bossName, deathTime) {
   };
 }
 
-// ============== NOTIFICATIONS ==============
-// Store which alerts have already been sent to avoid duplicates
-let notified = {};
 
 // Check if any boss should trigger an alert
 function checkAlerts(channel) {
@@ -160,24 +157,11 @@ function checkAlerts(channel) {
     ];
 
     alerts.forEach((alert) => {
-      if (diffMinutes === alert.offset) {
-        const key = `${boss.boss}-${alert.offset}-${spawnAt.toISODate()}`;
-        if (!notified[key]) {
-          channel.send(alert.message);
-          notified[key] = true;
-          console.log(`📢 Sent alert: ${alert.message}`);
-        }
+      if (diffMinutes === alert.offset && now.second === 0) {
+      channel.send(alert.message);
+      console.log(`📢 Sent alert: ${alert.message}`);
       }
     });
-  });
-
-  // Cleanup old alerts (older than 2 days)
-  const twoDaysAgo = now.minus({ days: 2 }).toISODate();
-  Object.keys(notified).forEach((key) => {
-    const day = key.split("-").pop();
-    if (day < twoDaysAgo) {
-      delete notified[key];
-    }
   });
 }
 
