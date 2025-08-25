@@ -44,6 +44,7 @@ client = new Client({
 
 const token = process.env.DISCORD_TOKEN;
 const channelId = process.env.DISCORD_CHANNEL_ID;
+const TZ = "Asia/Ho_Chi_Minh";
 
 // ============== LOAD BOSSES ==============
 // Load bosses.json file containing all boss info
@@ -57,7 +58,6 @@ function getNowDateUTC7() {
 
 // Return sorted list of bosses by next spawn time
 function listBosses() {
-  const TZ = "Asia/Ho_Chi_Minh";
   let reply = "📆 Next Respawns (UTC+7):\n";
 
   const sorted = bosses
@@ -148,7 +148,7 @@ function checkAlerts(channel) {
 
   bosses.forEach((boss) => {
     if (!boss.spawnAt) return;
-    const spawnAt = DateTime.fromISO(boss.spawnAt);
+    const spawnAt = DateTime.fromISO(boss.spawnAt).setZone(TZ);
     const diffMinutes = Math.round(spawnAt.diff(now, "minutes").minutes);
 
     // Predefined alerts (10m, 5m, 1m before spawn)
@@ -159,25 +159,28 @@ function checkAlerts(channel) {
     ];
 
     alerts.forEach((alert) => {
-       if (diffMinutes === alert.offset) {
+      if (diffMinutes === alert.offset) {
         const key = `${boss.boss}-${alert.offset}-${boss.spawnAt}`;
         if (!notified[key]) {
           channel.send(alert.message);
           notified[key] = true;
           console.log(`📢 Sent alert: ${alert.message}`);
-        }}
-    });
-
-    // Cleanup old alerts (older than 1 days)
-    const twoDaysAgo = now.minus({ days: 1 }).toISODate();
-    Object.keys(notified).forEach((key) => {
-      const day = key.split("-").pop();
-      if (day < twoDaysAgo) {
-        delete notified[key];
+        }
       }
     });
   });
+
+  // Cleanup old alerts (1 lần, không trong forEach)
+  const threeHoursAgo = now.minus({ hours: 3 });
+  Object.keys(notified).forEach((key) => {
+    const spawnAtStr = key.split("-").slice(-1)[0];
+    const spawnAt = DateTime.fromISO(spawnAtStr);
+    if (spawnAt < threeHoursAgo) {
+      delete notified[key];
+    }
+  });
 }
+
 
 // ============== DISCORD EVENTS ==============
 // Bot ready event
@@ -250,7 +253,7 @@ client.on("messageCreate", (message) => {
     message.channel.send(results.join("\n"));
     message.channel.send(listBosses());
   }
-  
+
 });
 
 // ============== LOGIN ==============
