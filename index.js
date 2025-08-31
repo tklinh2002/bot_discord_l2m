@@ -162,9 +162,9 @@ function checkAlerts(channel) {
       if (diffMinutes === alert.offset) {
         const key = `${boss.boss}-${alert.offset}-${boss.spawnAt}`;
         if (!notified[key]) {
-          channel.send(`${alert.message}-${boss.spawnAt}`);
+          channel.send(`${alert.message} at ${spawnAt.toFormat('HH:mm')}`);
           notified[key] = true;
-          console.log(`📢 Sent alert: ${alert.message}`);
+          console.log(`📢 Sent alert: ${alert.message}-${spawnAt.toFormat('HH:mm')}`);
         }
       }
     });
