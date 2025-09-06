@@ -76,6 +76,26 @@ function listBosses() {
   return reply;
 }
 
+// Return sorted list of bosses by next spawn time to send mail
+function listBossesToSendMail() {
+  let reply = "";
+
+  const sorted = bosses
+    .slice()
+    .sort(
+      (a, b) =>
+        DateTime.fromISO(a.spawnAt).toMillis() -
+        DateTime.fromISO(b.spawnAt).toMillis()
+    );
+
+  for (const b of sorted) {
+    const spawnAtVN = DateTime.fromISO(b.spawnAt).setZone(TZ);
+    reply += `${b.boss} ${spawnAtVN.toFormat("HH:mm")}\n`;
+  }
+
+  return reply;
+}
+
 // Automatically update spawn times if they are in the past
 function autoUpdateSpawnTimes() {
   const now = getNowDateUTC7();
@@ -253,6 +273,12 @@ client.on("messageCreate", (message) => {
     message.channel.send(results.join("\n"));
     message.channel.send(listBosses());
   }
+
+  // Command: !mail → list boss spawn to send mail
+  if (content.startsWith("!mail")) {
+    message.channel.send(listBossesToSendMail());
+  }
+
 
 });
 
