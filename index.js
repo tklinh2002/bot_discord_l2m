@@ -1,4 +1,12 @@
-import { Client, GatewayIntentBits } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  Collection,
+} from "discord.js";
+
 import fs from "fs";
 import dotenv from "dotenv";
 import express from "express";
@@ -26,9 +34,15 @@ app.get("/status", (req, res) => {
   });
 });
 
+const token = process.env.DISCORD_TOKEN;
+const channelId = process.env.DISCORD_CHANNEL_ID;
+const clientId = process.env.DISCORD_CLIENT_ID; // Thêm CLIENT_ID vào .env
+const TZ = "Asia/Ho_Chi_Minh";
+
 app.listen(PORT, () => {
   console.log("DEBUG TOKEN:", token ? "FOUND ✅" : "MISSING ❌");
   console.log("DEBUG CHANNEL ID:", channelId ? "FOUND ✅" : "MISSING ❌");
+  console.log("DEBUG CLIENT ID:", clientId ? "FOUND ✅" : "MISSING ❌");
   console.log(`🌐 HTTP server running on port ${PORT}`);
 });
 
@@ -42,13 +56,53 @@ client = new Client({
   ],
 });
 
-const token = process.env.DISCORD_TOKEN;
-const channelId = process.env.DISCORD_CHANNEL_ID;
-const TZ = "Asia/Ho_Chi_Minh";
-
 // ============== LOAD BOSSES ==============
 // Load bosses.json file containing all boss info
 let bosses = JSON.parse(fs.readFileSync("bosses.json", "utf8"));
+
+// ============== SLASH COMMAND SETUP ==============
+const commands = [
+  new SlashCommandBuilder()
+    .setName('add')
+    .setDescription('Add boss death time')
+    .addStringOption(option =>
+      option.setName('boss')
+        .setDescription('Type boss name (autocomplete available)')
+        .setRequired(true)
+        .setAutocomplete(true)
+    )
+    .addStringOption(option =>
+      option.setName('death_time')
+        .setDescription('Death time in HH:MM format (e.g., 14:30)')
+        .setRequired(true)
+    ),
+
+  new SlashCommandBuilder()
+    .setName('list')
+    .setDescription('Show all boss spawn times'),
+
+  new SlashCommandBuilder()
+    .setName('mail')
+    .setDescription('Get boss list format for mail')
+];
+
+// Register slash commands
+const rest = new REST({ version: '10' }).setToken(token);
+
+async function registerCommands() {
+  try {
+    console.log('🔄 Started refreshing slash commands...');
+
+    await rest.put(
+      Routes.applicationCommands(clientId),
+      { body: commands }
+    );
+
+    console.log('✅ Successfully reloaded slash commands!');
+  } catch (error) {
+    console.error('❌ Error registering slash commands:', error);
+  }
+}
 
 // ============== HELPER FUNCS ==============
 // Get current datetime in UTC+7 (Vietnam timezone)
@@ -96,6 +150,12 @@ function listBossesToSendMail() {
   return reply;
 }
 
+// Validate time format HH:MM
+function isValidTimeFormat(timeStr) {
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$/;
+  return timeRegex.test(timeStr);
+}
+
 // Automatically update spawn times if they are in the past
 function autoUpdateSpawnTimes() {
   const now = getNowDateUTC7();
@@ -136,6 +196,11 @@ function updateBossSpawn(bossName, deathTime) {
   );
   if (!boss) return { success: false, message: `❌ Boss not found: ${bossName}` };
 
+  // Validate time format
+  if (!isValidTimeFormat(deathTime)) {
+    return { success: false, message: `❌ Invalid time format! Use HH:MM (e.g., 14:30)` };
+  }
+
   const now = getNowDateUTC7();
   const [dh, dm] = deathTime.split(":").map(Number);
   let deathAt = now.set({ hour: dh, minute: dm, second: 0, millisecond: 0 });
@@ -153,7 +218,7 @@ function updateBossSpawn(bossName, deathTime) {
 
   return {
     success: true,
-    message: `✅ **${boss.boss}** - ${spawnAt.toFormat("HH:mm")}`,
+    message: `✅ **${boss.boss}** - Next spawn: ${spawnAt.toFormat("HH:mm")} (${boss.hours}h respawn)`,
   };
 }
 
@@ -201,11 +266,13 @@ function checkAlerts(channel) {
   });
 }
 
-
 // ============== DISCORD EVENTS ==============
 // Bot ready event
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log(`✅ Bot logged in as: ${client.user.tag}`);
+
+  // Register slash commands
+  await registerCommands();
 
   const channel = client.channels.cache.get(channelId);
   if (!channel) {
@@ -219,7 +286,82 @@ client.once("ready", () => {
   }, 30000);
 });
 
-// Handle user messages
+// Handle slash commands
+client.on('interactionCreate', async interaction => {
+  // Handle autocomplete
+  if (interaction.isAutocomplete()) {
+    const { commandName, options } = interaction;
+
+    if (commandName === 'add') {
+      const focusedValue = options.getFocused().toLowerCase();
+
+      // Filter bosses based on user input
+      const filtered = bosses.filter(boss =>
+        boss.boss.toLowerCase().includes(focusedValue)
+      ).slice(0, 25); // Discord limit is 25 choices
+
+      // Create choices with boss info
+      const choices = filtered.map(boss => ({
+        name: `${boss.boss} (${boss.rate}% - ${boss.hours}h)`,
+        value: boss.boss
+      }));
+
+      await interaction.respond(choices);
+    }
+    return;
+  }
+
+  if (!interaction.isChatInputCommand()) return;
+
+  const { commandName } = interaction;
+
+  try {
+    if (commandName === 'add') {
+      const bossName = interaction.options.getString('boss');
+      const deathTime = interaction.options.getString('death_time');
+
+      const result = updateBossSpawn(bossName, deathTime);
+
+      if (!result.success) {
+        await interaction.reply({ content: result.message, ephemeral: true });
+        return;
+      }
+
+      // Save to file
+      fs.writeFileSync("bosses.json", JSON.stringify(bosses, null, 2), "utf8");
+
+      // Reply with success message and updated list
+      await interaction.reply({
+        content: `${result.message}\n\n${listBosses()}`,
+        ephemeral: false
+      });
+
+    } else if (commandName === 'list') {
+      await interaction.reply({
+        content: listBosses(),
+        ephemeral: false
+      });
+
+    } else if (commandName === 'mail') {
+      await interaction.reply({
+        content: `📧 Boss list for mail:\n\`\`\`\n${listBossesToSendMail()}\`\`\``,
+        ephemeral: false
+      });
+    }
+
+  } catch (error) {
+    console.error('Error handling slash command:', error);
+
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: '❌ An error occurred while processing the command.',
+        ephemeral: true
+      });
+    }
+  }
+});
+
+// Handle user messages (keep existing message commands for backward compatibility)
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
   if (message.channel.id !== channelId) return;
@@ -278,15 +420,13 @@ client.on("messageCreate", (message) => {
   if (content.startsWith("!mail")) {
     message.channel.send(listBossesToSendMail());
   }
-
-
 });
 
 // ============== LOGIN ==============
 // Start bot
-
 client.login(token).catch((err) => {
   console.log("DEBUG TOKEN:", token ? "FOUND ✅" : "MISSING ❌");
   console.log("DEBUG CHANNEL ID:", channelId ? "FOUND ✅" : "MISSING ❌");
+  console.log("DEBUG CLIENT ID:", clientId ? "FOUND ✅" : "MISSING ❌");
   console.error("❌ Failed to login:", err);
 });
